@@ -2,6 +2,55 @@
 
 import numpy as np
 
+
+def compute_distances(N, num_clusters, xs, d, centroids):
+    # Compute distances from sample points to centroids
+    # all pair-wise _squared_ distances
+    cdists = np.zeros((N, num_clusters))
+    for i in range(N):
+        xi = xs[i, :]
+        for c in range(num_clusters):
+            cc = centroids[c, :]
+            dist = np.sum((xi - cc) ** 2)
+            cdists[i, c] = dist
+
+    return cdists
+
+
+def expectation_step(N, num_clusters, cdists, assignments):
+    # Expectation step: assign clusters
+    num_changed_assignments = 0
+    for i in range(N):
+        # pick closest cluster
+        cmin = 0
+        mindist = np.inf
+        for c in range(num_clusters):
+            if cdists[i, c] < mindist:
+                cmin = c
+                mindist = cdists[i, c]
+            if assignments[i] != cmin:
+                num_changed_assignments += 1
+                assignments[i] = cmin
+
+    return assignments, num_changed_assignments
+
+
+def maximization_step(N, num_clusters, xs, assignments, centroids):
+    # Maximization step: Update centroid for each cluster
+    for c in range(num_clusters):
+        newcent = 0
+        clustersize = 0
+        for i in range(N):
+            if assignments[i] == c:
+                newcent = newcent + xs[i, :]
+                clustersize += 1
+
+        newcent = newcent / clustersize
+        centroids[c, :] = newcent
+
+    return centroids
+
+
 def kmeans(xs, num_clusters=4):
     """Run k-means algorithm to convergence
 
@@ -9,7 +58,7 @@ def kmeans(xs, num_clusters=4):
         xs: numpy.ndarray: An N-by-d array describing N data points each of dimension d
         num_clusters: int: The number of clusters desired
     """
-
+    xs = xs[1:, 1:]
     N = xs.shape[0]  # num sample points
     d = xs.shape[1]  # dimension of space
 
@@ -22,45 +71,55 @@ def kmeans(xs, num_clusters=4):
     assignments = np.zeros(N, dtype=np.uint8)
 
     # loop until convergence
+    loop = 0
     while True:
-        # Compute distances from sample points to centroids
-        # all pair-wise _squared_ distances
-        cdists = np.zeros((N, num_clusters))
-        for i in range(N):
-            xi = xs[i, :]
-            for c in range(num_clusters):
-                cc = centroids[c, :]
+        # # Compute distances from sample points to centroids
+        # # all pair-wise _squared_ distances
+        # cdists = np.zeros((N, num_clusters))
+        # for i in range(N):
+        #     xi = xs[i, :]
+        #     for c in range(num_clusters):
+        #         cc = centroids[c, :]
+        #
+        #         dist = np.sum((xi - cc) ** 2)
+        #
+        #         cdists[i, c] = dist
+        #
+        # # Expectation step: assign clusters
+        # num_changed_assignments = 0
+        # # claim: we can just do the following:
+        # # assignments = np.argmin(cdists, axis=1)
+        # for i in range(N):
+        #     # pick closest cluster
+        #     cmin = 0
+        #     mindist = np.inf
+        #     for c in range(num_clusters):
+        #         if cdists[i, c] < mindist:
+        #             cmin = c
+        #             mindist = cdists[i, c]
+        #         if assignments[i] != cmin:
+        #             num_changed_assignments += 1
+        #         assignments[i] = cmin
+        #
+        # # Maximization step: Update centroid for each cluster
+        # for c in range(num_clusters):
+        #     newcent = 0
+        #     clustersize = 0
+        #     for i in range(N):
+        #         if assignments[i] == c:
+        #             newcent = newcent + xs[i, :]
+        #             clustersize += 1
+        #     newcent = newcent / clustersize
+        #     centroids[c, :] = newcent
 
-                dist = np.sum((xi - cc) ** 2)
+        print('loop ', loop)
+        loop += 1
 
-                cdists[i, c] = dist
+        cdists = compute_distances(N, num_clusters, xs, d, centroids)
 
-        # Expectation step: assign clusters
-        num_changed_assignments = 0
-        # claim: we can just do the following:
-        # assignments = np.argmin(cdists, axis=1)
-        for i in range(N):
-            # pick closest cluster
-            cmin = 0
-            mindist = np.inf
-            for c in range(num_clusters):
-                if cdists[i, c] < mindist:
-                    cmin = c
-                    mindist = cdists[i, c]
-                if assignments[i] != cmin:
-                    num_changed_assignments += 1
-                assignments[i] = cmin
+        assignments, num_changed_assignments = expectation_step(N, num_clusters, cdists, assignments)
 
-        # Maximization step: Update centroid for each cluster
-        for c in range(num_clusters):
-            newcent = 0
-            clustersize = 0
-            for i in range(N):
-                if assignments[i] == c:
-                    newcent = newcent + xs[i, :]
-                    clustersize += 1
-                newcent = newcent / clustersize
-                centroids[c, :] = newcent
+        centroids = maximization_step(N, num_clusters, xs, assignments, centroids)
 
         if num_changed_assignments == 0:
             break
@@ -78,9 +137,9 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # load some sample data
-    from sklearn.datasets import load_iris
-
-    features, labels = load_iris(return_X_y=True)
+    import pandas as pd
+    data = pd.read_csv('TCGA-PANCAN-HiSeq-801x20531.tar/TCGA-PANCAN-HiSeq-801x20531/data.csv')
+    features = data.to_numpy()
 
     # run k-means
     centroids, assignments = kmeans(features, num_clusters=args.k)
