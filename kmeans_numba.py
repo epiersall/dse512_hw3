@@ -1,6 +1,7 @@
 """Vectorized k-means implementsion for DSE512"""
 import numba
 import numpy as np
+import time
 
 
 def compute_distances(N, num_clusters, xs, centroids):
@@ -36,7 +37,7 @@ def expectation_step(N, num_clusters, cdists, assignments):
     return assignments, num_changed_assignments
 
 
-# @numba.jit
+@numba.jit
 def maximization_step(N, num_clusters, xs, assignments, centroids):
     # Maximization step: Update centroid for each cluster
     for c in range(num_clusters):
@@ -44,8 +45,9 @@ def maximization_step(N, num_clusters, xs, assignments, centroids):
         clustersize = 0
         for i in range(N):
             if assignments[i] == c:
-                xi = xs[i, :]
-                newcent = newcent + np.array(xi, dtype='float32')
+                # xi = xs[i, :]
+                # newcent = newcent + xi
+                newcent = newcent + xs[i, :]
                 clustersize += 1
 
         newcent = newcent / clustersize
@@ -62,8 +64,8 @@ def kmeans(xs, num_clusters=4):
         xs: numpy.ndarray: An N-by-d array describing N data points each of dimension d
         num_clusters: int: The number of clusters desired
     """
+    t1 = time.perf_counter()
     xs = xs[1:, 1:]
-    xs = np.array(xs, dtype='float32')
     N = xs.shape[0]  # num sample points
     d = xs.shape[1]  # dimension of space
 
@@ -75,8 +77,6 @@ def kmeans(xs, num_clusters=4):
     centroids = xs[cids, :]
     assignments = np.zeros(N, dtype=np.uint8)
 
-    cdists = np.zeros((N, num_clusters), dtype=np.float32)
-
     # loop until convergence
     loop = 0
     while True:
@@ -86,11 +86,21 @@ def kmeans(xs, num_clusters=4):
 
         cdists = compute_distances(N, num_clusters, xs, centroids)
 
+        t1_expectation = time.perf_counter()
         assignments, num_changed_assignments = expectation_step(N, num_clusters, cdists, assignments)
+        t2_expectation = time.perf_counter()
+        print("expectation step time: ", t2_expectation - t1_expectation)
 
+        t1_maximization = time.perf_counter()
         centroids = maximization_step(N, num_clusters, xs, assignments, centroids)
+        t2_maximization = time.perf_counter()
+        print('maximization step time: ', t2_maximization - t1_maximization)
+
+
 
         if loop > 2:
+            t2 = time.perf_counter()
+            print('kmeans time: ', t2 - t1)
             break
         if num_changed_assignments == 0:
             break
