@@ -1,10 +1,9 @@
-"""Simple k-means implemention for DSE512"""
-
+"""Vectorized k-means implementsion for DSE512"""
+import numba
 import numpy as np
 
-# compute_distances(),expectation_step(),maximization_step()
 
-
+@numba.jit
 def compute_distances(N, num_clusters, xs, d, centroids):
     # Compute distances from sample points to centroids
     # all pair-wise _squared_ distances
@@ -13,10 +12,8 @@ def compute_distances(N, num_clusters, xs, d, centroids):
         xi = xs[i, :]
         for c in range(num_clusters):
             cc = centroids[c, :]
-            dist = 0
-            for j in range(d):
-                dist += (xi[j] - cc[j]) ** 2
-                cdists[i, c] = dist
+            dist = np.sum((xi - cc) ** 2)
+            cdists[i, c] = dist
 
     return cdists
 
@@ -56,26 +53,28 @@ def maximization_step(N, num_clusters, xs, assignments, centroids):
 
 
 def kmeans(xs, num_clusters=4):
-    """
-    Run k-means algorithm to convergence.
-    :param xs: numpy.ndarray: an N-by-d array describing N data points each of dimension d
-    :param num_clusters: int: The number of clusters desired
+    """Run k-means algorithm to convergence
+
+    Args:
+        xs: numpy.ndarray: An N-by-d array describing N data points each of dimension d
+        num_clusters: int: The number of clusters desired
     """
     xs = xs[1:, 1:]
-    N = xs.shape[0] # num sample points
-    d = xs.shape[1] # dimension of space
+    N = xs.shape[0]  # num sample points
+    d = xs.shape[1]  # dimension of space
 
     #
     # INITIALIZATION PHASE
     # initialize centroids randomly as distinct elements of xs
     np.random.seed(0)
     cids = np.random.choice(N, (num_clusters,), replace=False)
-    centroids =xs[cids, :]
+    centroids = xs[cids, :]
     assignments = np.zeros(N, dtype=np.uint8)
 
     # loop until convergence
     loop = 0
     while True:
+
         print('loop ', loop)
         loop += 1
 
@@ -85,36 +84,32 @@ def kmeans(xs, num_clusters=4):
 
         centroids = maximization_step(N, num_clusters, xs, assignments, centroids)
 
-        print("assignments changes: ", num_changed_assignments)
         if loop > 2:
             break
         if num_changed_assignments == 0:
             break
 
-
     # return cluster centroids and assignments
-    return centroids, assignments
-
-
+    # return centroids, assignments
+    print(centroids, assignments)
 
 
 if __name__ == '__main__':
     # take arguments like number of clusters k
     import argparse
+
     parser = argparse.ArgumentParser()
     parser.add_argument('-k', type=int, required=True, help='Number of clusters')
     args = parser.parse_args()
 
     # load some sample data
-
     import pandas as pd
+
     data = pd.read_csv('TCGA-PANCAN-HiSeq-801x20531.tar/TCGA-PANCAN-HiSeq-801x20531/data.csv')
     features = data.to_numpy()
-
-    print('loaded data')
 
     # run k-means
     centroids, assignments = kmeans(features, num_clusters=args.k)
 
     # print out results
-    print(centroids, assignments)
+    # print(centroids, assignments)
