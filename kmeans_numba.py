@@ -3,8 +3,7 @@ import numba
 import numpy as np
 
 
-@numba.jit
-def compute_distances(N, num_clusters, xs, d, centroids):
+def compute_distances(N, num_clusters, xs, centroids):
     # Compute distances from sample points to centroids
     # all pair-wise _squared_ distances
     cdists = np.zeros((N, num_clusters))
@@ -18,6 +17,7 @@ def compute_distances(N, num_clusters, xs, d, centroids):
     return cdists
 
 
+@numba.jit
 def expectation_step(N, num_clusters, cdists, assignments):
     # Expectation step: assign clusters
     num_changed_assignments = 0
@@ -36,6 +36,7 @@ def expectation_step(N, num_clusters, cdists, assignments):
     return assignments, num_changed_assignments
 
 
+# @numba.jit
 def maximization_step(N, num_clusters, xs, assignments, centroids):
     # Maximization step: Update centroid for each cluster
     for c in range(num_clusters):
@@ -43,13 +44,15 @@ def maximization_step(N, num_clusters, xs, assignments, centroids):
         clustersize = 0
         for i in range(N):
             if assignments[i] == c:
-                newcent = newcent + xs[i, :]
+                xi = xs[i, :]
+                newcent = newcent + np.array(xi, dtype='float32')
                 clustersize += 1
 
         newcent = newcent / clustersize
         centroids[c, :] = newcent
 
     return centroids
+
 
 
 def kmeans(xs, num_clusters=4):
@@ -60,6 +63,7 @@ def kmeans(xs, num_clusters=4):
         num_clusters: int: The number of clusters desired
     """
     xs = xs[1:, 1:]
+    xs = np.array(xs, dtype='float32')
     N = xs.shape[0]  # num sample points
     d = xs.shape[1]  # dimension of space
 
@@ -71,6 +75,8 @@ def kmeans(xs, num_clusters=4):
     centroids = xs[cids, :]
     assignments = np.zeros(N, dtype=np.uint8)
 
+    cdists = np.zeros((N, num_clusters), dtype=np.float32)
+
     # loop until convergence
     loop = 0
     while True:
@@ -78,7 +84,7 @@ def kmeans(xs, num_clusters=4):
         print('loop ', loop)
         loop += 1
 
-        cdists = compute_distances(N, num_clusters, xs, d, centroids)
+        cdists = compute_distances(N, num_clusters, xs, centroids)
 
         assignments, num_changed_assignments = expectation_step(N, num_clusters, cdists, assignments)
 
